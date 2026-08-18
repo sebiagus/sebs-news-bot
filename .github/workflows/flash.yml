@@ -1,0 +1,38 @@
+name: Radar Flash Sebs News
+
+on:
+  schedule:
+    # Se ejecuta automáticamente cada 1 hora
+    - cron: '0 * * * *'
+  workflow_dispatch: # Permite probarlo manualmente cuando quieras
+
+jobs:
+  radar-flash:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Instalar librerías
+        run: |
+          pip install requests feedparser google-genai
+
+      - name: Ejecutar Radar Flash
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python alertas_flash.py
+
+      - name: Guardar memoria de noticias vistas
+        run: |
+          git config --global user.name "Sebs News Bot"
+          git config --global user.email "bot@sebs.news"
+          git add vistos.json || true
+          git commit -m "chore: actualizar memoria de noticias vistas" || true
+          git push || true
