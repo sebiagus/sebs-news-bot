@@ -22,7 +22,7 @@ def generar_efemerides(fecha_hoy):
     Actúa como el historiador y editor de contenido de 'Sebs.news' (medio digital de música en Buenos Aires).
     Hoy es {fecha_hoy}.
 
-    Identifica exactamente 2 o 3 efemérides musicales destacadas ocurridas un {fecha_hoy}:
+    "Identifica exactamente 4 o 5 efemérides musicales destacadas (3 de Argentina/Urbano/Rock Nacional y 2 Internacionales) ocurridas un {fecha_hoy}:
     1. HITO PRINCIPAL (ARGENTINA): Prioridad absoluta a Rock Nacional (Charly, Spinetta, Soda Stereo/Cerati, Los Redondos, Sumo, Fito Páez, Calamaro, etc.) o escena urbana argentina (hitos de Duki, Wos, etc.).
     2. HITO INTERNACIONAL: Leyendas de la música mundial (The Beatles, Queen, Bowie, Michael Jackson, Daft Punk, Nirvana, etc.).
 
