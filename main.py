@@ -75,27 +75,26 @@ def procesar_noticias_con_gemini(noticias):
     -----------------------------------
     """
 
-    # Modelos de respaldo en orden de prioridad
+    # Modelos oficiales soportados
     modelos = [
-        'gemini-2.5-flash',
-        'gemini-2.0-flash',
-        'gemini-1.5-flash',
-        'gemini-2.5-pro'
+        'gemini-3.6-flash',
+        'gemini-3.1-pro-preview'
     ]
 
     for modelo in modelos:
-        try:
-            print(f"🧠 Consultando con modelo: {modelo}...")
-            response = client.models.generate_content(
-                model=modelo,
-                contents=prompt,
-            )
-            if response and response.text:
-                print(f"✅ Respuesta exitosa con {modelo}")
-                return response.text
-        except Exception as e:
-            print(f"⚠️ Modelo {modelo} no disponible o saturado: {e}")
-            time.sleep(2) # Espera 2 segundos antes de probar el siguiente modelo
+        for intento in range(3):  # Reintenta hasta 3 veces si hay pico de demanda
+            try:
+                print(f"🧠 Consultando modelo {modelo} (Intento {intento + 1}/3)...")
+                response = client.models.generate_content(
+                    model=modelo,
+                    contents=prompt,
+                )
+                if response and response.text:
+                    print(f"✅ Respuesta exitosa generada con {modelo}")
+                    return response.text
+            except Exception as e:
+                print(f"⚠️ Aviso en {modelo} intento {intento + 1}: {e}")
+                time.sleep(5)  # Espera 5 segundos para que baje el tráfico
 
     return None
 
@@ -144,4 +143,4 @@ if __name__ == "__main__":
         enviar_telegram(f"🗞️ MESA DE REDACCIÓN (TOP 10) - SEBS.NEWS\n\n{reporte}")
         print("¡Proceso completado con éxito!")
     else:
-        print("❌ No se pudo generar el reporte tras probar todos los modelos.")
+        print("❌ No se pudo generar el reporte.")
