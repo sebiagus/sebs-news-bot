@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import requests
 import feedparser
 from google import genai
@@ -12,16 +13,13 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 # ==========================================
-# LISTA AMPLIADA DE FUENTES RSS
+# LISTA DE FUENTES RSS
 # ==========================================
 FEEDS_MUSICA = [
-    # Medios especializados
     "https://indiehoy.com/feed/",
     "http://www.silencio.com.ar/feed/",
     "https://billboard.ar/feed/",
     "https://www.indierocks.mx/feed/",
-    
-    # Radares inteligentes de Google News Argentina (últimas 48 horas)
     "https://news.google.com/rss/search?q=recitales+musica+buenos+aires+when:2d&hl=es-419&gl=AR&ceid=AR:es-419",
     "https://news.google.com/rss/search?q=Movistar+Arena+OR+estadio+River+OR+Velez+recital+when:2d&hl=es-419&gl=AR&ceid=AR:es-419",
     "https://news.google.com/rss/search?q=entradas+preventa+show+concierto+argentina+when:2d&hl=es-419&gl=AR&ceid=AR:es-419",
@@ -35,11 +33,8 @@ def obtener_noticias():
     for url in FEEDS_MUSICA:
         try:
             parsed = feedparser.parse(url)
-            # Toma hasta 6 noticias por cada fuente para tener un gran banco de opciones
             for entry in parsed.entries[:6]:
                 titulo = entry.title.strip()
-                
-                # Evitar duplicados
                 if titulo.lower() not in titulos_vistos:
                     titulos_vistos.add(titulo.lower())
                     noticias.append({
@@ -67,7 +62,7 @@ def procesar_noticias_con_gemini(noticias):
     Noticias candidatas:
     {json.dumps(noticias, ensure_ascii=False, indent=2)}
 
-    Devuelve un reporte conciso y directo en este formato para cada una de las 10 noticias:
+    Devuelve un reporte conciso y directo con esta estructura por cada noticia:
 
     [Número]. 📌 [TITULAR IMPACTANTE]
     🎬 Formato: [Reel/TikTok / Carrusel / Post Único]
@@ -80,21 +75,33 @@ def procesar_noticias_con_gemini(noticias):
     -----------------------------------
     """
 
-    try:
-        response = client.models.generate_content(
-            model='gemini-3.6-flash',
-            contents=prompt,
-        )
-        return response.text
-    except Exception as e:
-        print(f"❌ Error al consultar a Gemini: {e}")
-        return None
+    # Modelos de respaldo en orden de prioridad
+    modelos = [
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',
+        'gemini-1.5-flash',
+        'gemini-2.5-pro'
+    ]
+
+    for modelo in modelos:
+        try:
+            print(f"🧠 Consultando con modelo: {modelo}...")
+            response = client.models.generate_content(
+                model=modelo,
+                contents=prompt,
+            )
+            if response and response.text:
+                print(f"✅ Respuesta exitosa con {modelo}")
+                return response.text
+        except Exception as e:
+            print(f"⚠️ Modelo {modelo} no disponible o saturado: {e}")
+            time.sleep(2) # Espera 2 segundos antes de probar el siguiente modelo
+
+    return None
 
 def enviar_telegram(mensaje):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     
-    # Telegram tiene un límite de 4096 caracteres por mensaje.
-    # Si el reporte de 10 noticias es largo, lo dividimos en bloques seguros.
     limite = 3800
     partes = []
     
@@ -129,7 +136,7 @@ if __name__ == "__main__":
     noticias = obtener_noticias()
     print(f"Total de noticias recopiladas: {len(noticias)}")
     
-    print("🧠 Generando el TOP 10 con Gemini...")
+    print("🧠 Generando el TOP 10...")
     reporte = procesar_noticias_con_gemini(noticias)
     
     if reporte:
@@ -137,4 +144,4 @@ if __name__ == "__main__":
         enviar_telegram(f"🗞️ MESA DE REDACCIÓN (TOP 10) - SEBS.NEWS\n\n{reporte}")
         print("¡Proceso completado con éxito!")
     else:
-        print("❌ No se pudo generar el reporte.")
+        print("❌ No se pudo generar el reporte tras probar todos los modelos.")
