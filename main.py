@@ -4,54 +4,77 @@ import requests
 import feedparser
 from google import genai
 
-# Cargar llaves
+# Cargar llaves desde los secretos de GitHub
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 client = genai.Client(api_key=GEMINI_API_KEY)
 
+# ==========================================
+# LISTA AMPLIADA DE FUENTES RSS
+# ==========================================
 FEEDS_MUSICA = [
+    # Medios especializados
     "https://indiehoy.com/feed/",
-    "http://www.silencio.com.ar/feed/"
+    "http://www.silencio.com.ar/feed/",
+    "https://billboard.ar/feed/",
+    "https://www.indierocks.mx/feed/",
+    
+    # Radares inteligentes de Google News Argentina (últimas 48 horas)
+    "https://news.google.com/rss/search?q=recitales+musica+buenos+aires+when:2d&hl=es-419&gl=AR&ceid=AR:es-419",
+    "https://news.google.com/rss/search?q=Movistar+Arena+OR+estadio+River+OR+Velez+recital+when:2d&hl=es-419&gl=AR&ceid=AR:es-419",
+    "https://news.google.com/rss/search?q=entradas+preventa+show+concierto+argentina+when:2d&hl=es-419&gl=AR&ceid=AR:es-419",
+    "https://news.google.com/rss/search?q=Niceto+Club+OR+Luna+Park+OR+Teatro+Flores+when:2d&hl=es-419&gl=AR&ceid=AR:es-419"
 ]
 
 def obtener_noticias():
     noticias = []
+    titulos_vistos = set()
+
     for url in FEEDS_MUSICA:
         try:
             parsed = feedparser.parse(url)
-            for entry in parsed.entries[:3]:
-                noticias.append({
-                    "titulo": entry.title,
-                    "link": entry.link,
-                    "resumen": entry.get("summary", "")[:250]
-                })
+            # Toma hasta 6 noticias por cada fuente para tener un gran banco de opciones
+            for entry in parsed.entries[:6]:
+                titulo = entry.title.strip()
+                
+                # Evitar duplicados
+                if titulo.lower() not in titulos_vistos:
+                    titulos_vistos.add(titulo.lower())
+                    noticias.append({
+                        "titulo": titulo,
+                        "link": entry.link,
+                        "resumen": entry.get("summary", "")[:250]
+                    })
         except Exception as e:
             print(f"⚠️ Error al leer feed {url}: {e}")
+            
     return noticias
 
 def procesar_noticias_con_gemini(noticias):
     prompt = f"""
     Actúa como el editor jefe de 'Sebs.news', un medio digital de música en Buenos Aires para Instagram y TikTok.
-    Analiza la siguiente lista de noticias recientes y selecciona las 3 más relevantes para el público de Buenos Aires.
+    Analiza la lista de noticias recopiladas y selecciona exactamente las 10 noticias/novedades más relevantes para el público de Buenos Aires/Argentina.
     
-    Para cada una, determina el mejor formato:
+    Buscá variedad de géneros (Rock Nacional, Trap/Urbano, Pop, Indie, Electrónica y Visitas Internacionales) y tipos de noticias (sold outs, anuncios, preventas/precios, lanzamientos).
+
+    Para cada una de las 10 opciones, asigna el mejor formato de redes:
     - REEL / TIKTOK: Noticia bomba, sold out, confirmación express o urgencia.
     - CARRUSEL: Precios de entradas, fechas de preventa, tarjetas o guías paso a paso.
-    - POST ÚNICO: Lanzamiento importante, foto histórica o hito relevante.
+    - POST ÚNICO / STORY: Lanzamiento importante, foto histórica o hito relevante.
 
-    Noticias recibidas:
+    Noticias candidatas:
     {json.dumps(noticias, ensure_ascii=False, indent=2)}
 
-    Devuelve un reporte claro listo para Telegram con esta estructura por cada noticia:
-    
-    📌 [TITULAR IMPACTANTE]
-    🎬 Formato: [Reel/TikTok / Carrusel / Post]
-    💡 ¿Por qué este formato?: [Explicación breve]
-    ✍️ Estructura/Guión rápido:
+    Devuelve un reporte conciso y directo en este formato para cada una de las 10 noticias:
+
+    [Número]. 📌 [TITULAR IMPACTANTE]
+    🎬 Formato: [Reel/TikTok / Carrusel / Post Único]
+    💡 Por qué: [Explicación breve en 1 línea]
+    ✍️ Idea de contenido:
     - Hook / Placa 1: ...
-    - Cuerpo / Placas siguientes: ...
+    - Info clave: ...
     - CTA: ...
     🔗 Fuente: [Link]
     -----------------------------------
@@ -69,27 +92,49 @@ def procesar_noticias_con_gemini(noticias):
 
 def enviar_telegram(mensaje):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": mensaje,
-        "disable_web_page_preview": True
-    }
-    res = requests.post(url, json=payload)
-    if res.status_code != 200:
-        print(f"❌ Error Telegram ({res.status_code}): {res.text}")
+    
+    # Telegram tiene un límite de 4096 caracteres por mensaje.
+    # Si el reporte de 10 noticias es largo, lo dividimos en bloques seguros.
+    limite = 3800
+    partes = []
+    
+    if len(mensaje) <= limite:
+        partes.append(mensaje)
     else:
-        print("✅ Mensaje enviado exitosamente a Telegram.")
+        while len(mensaje) > limite:
+            corte = mensaje.rfind("-----------------------------------", 0, limite)
+            if corte == -1:
+                corte = mensaje.rfind("\n\n", 0, limite)
+            if corte == -1:
+                corte = limite
+            partes.append(mensaje[:corte].strip())
+            mensaje = mensaje[corte:].strip()
+        if mensaje:
+            partes.append(mensaje)
+
+    for i, parte in enumerate(partes):
+        payload = {
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": parte,
+            "disable_web_page_preview": True
+        }
+        res = requests.post(url, json=payload)
+        if res.status_code != 200:
+            print(f"❌ Error Telegram ({res.status_code}): {res.text}")
+        else:
+            print(f"✅ Parte {i+1}/{len(partes)} enviada con éxito a Telegram.")
 
 if __name__ == "__main__":
-    print("🔎 Rastreando agenda...")
+    print("🔎 Rastreando múltiples fuentes...")
     noticias = obtener_noticias()
-    print(f"Encontradas {len(noticias)} noticias.")
+    print(f"Total de noticias recopiladas: {len(noticias)}")
     
-    print("🧠 Procesando con Gemini...")
+    print("🧠 Generando el TOP 10 con Gemini...")
     reporte = procesar_noticias_con_gemini(noticias)
     
     if reporte:
         print("📱 Enviando reporte a Telegram...")
-        enviar_telegram(f"🗞️ MESA DE REDACCIÓN - SEBS.NEWS\n\n{reporte}")
+        enviar_telegram(f"🗞️ MESA DE REDACCIÓN (TOP 10) - SEBS.NEWS\n\n{reporte}")
+        print("¡Proceso completado con éxito!")
     else:
         print("❌ No se pudo generar el reporte.")
