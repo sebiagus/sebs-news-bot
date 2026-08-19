@@ -2,9 +2,9 @@ name: Radar Flash Sebs News
 
 on:
   schedule:
-    # Se ejecuta automáticamente cada 1 hora
-    - cron: '0 * * * *'
-  workflow_dispatch: # Permite probarlo manualmente cuando quieras
+    # Se ejecuta automáticamente cada 15 minutos
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
 
 jobs:
   radar-flash:
