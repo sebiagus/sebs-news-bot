@@ -14,7 +14,6 @@ MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio",
          "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
 
 def obtener_fecha_manana_texto():
-    # Tomamos la hora de Argentina (UTC-3) y le sumamos exactamente 1 día
     ahora = datetime.now(timezone(timedelta(hours=-3)))
     manana = ahora + timedelta(days=1)
     return f"{manana.day} de {MESES[manana.month - 1]}"
@@ -24,33 +23,38 @@ def generar_efemerides(fecha_manana):
     Actúa como el editor de contenido de 'Sebs.news' (medio digital de música en Buenos Aires para Instagram y TikTok).
     El objetivo es preparar con anticipación el contenido para MAÑANA: {fecha_manana}.
 
-    Identifica exactamente 2 o 3 efemérides musicales destacadas ocurridas un {fecha_manana}:
-    1. HITO PRINCIPAL (ARGENTINA): Prioridad absoluta a Rock Nacional (Charly García, Luis Alberto Spinetta, Soda Stereo/Cerati, Los Redondos, Sumo, Fito Páez, Calamaro, Babasónicos, etc.) o hitos de la escena urbana argentina (Duki, Wos, etc.).
-    2. HITO INTERNACIONAL: Leyendas de la música mundial (The Beatles, Queen, David Bowie, Michael Jackson, Daft Punk, Nirvana, etc.).
+    Identifica exactamente 5 EFEMÉRIDES MUSICALES DESTACADAS ocurridas un {fecha_manana}.
+    
+    CRITERIO EDITORIAL Y VARIEDAD DE GÉNEROS:
+    - Asegura diversidad sonora: no te limites al rock tradicional. Considera Rock, Urbano/Trap/RKT, Pop, Indie, Electrónica y leyendas globales.
+    - Criterio de relevancia estricto: lanzamientos de álbumes históricos, singles consagratorios, recitales memorables en venues clave (Obras, River, Luna Park, estadios mundiales), hitos de charts o aniversarios de figuras indiscutidas.
+    
+    DISTRIBUCIÓN REQUERIDA (5 OPCIONES):
+    1. Nacional: Rock / Pop / Indie Argentino
+    2. Nacional: Urbano / Trap / Escena contemporánea o nuevo clásico
+    3. Internacional: Rock / Indie / Alternativo
+    4. Internacional: Pop / Electrónica / Hip-Hop
+    5. Hito Destacado: Concierto en vivo legendario, récord histórico o aniversario redondo
 
-    Devuelve un reporte listo para Telegram optimizado para armar el contenido con tiempo:
+    Devuelve un reporte listo para Telegram con este formato exacto:
 
     🗓️ *EFEMÉRIDES PARA MAÑANA - {fecha_manana.upper()}*
-    _(Para preparar placas / Stories / Reels con anticipación)_
+    _(Menú de 5 opciones para preparar placas / Stories / Reels)_
 
-    🎸 *1. [TÍTULO DEL HITO NACIONAL / AÑO]*
-    📖 *¿Qué pasó?:* [Explicación concisa y atrapante de 2 líneas]
-    📲 *Idea para contenido de mañana:*
-    - 🎵 *Audio / Canción sugerida:* [Tema exacto para musicalizar]
-    - 🗳️ *Consigna / Debate:* [Pregunta o encuesta para que los seguidores interactúen]
-
-    🌍 *2. [TÍTULO DEL HITO INTERNACIONAL / AÑO]*
-    📖 *¿Qué pasó?:* [Explicación concisa]
-    📲 *Idea para contenido:*
-    - 🎵 *Audio sugerido:* [Tema]
-    - 🗳️ *Consigna:* [Pregunta rápida]
+    [Número]. 📌 *[TÍTULO DEL HITO / AÑO]*
+    🏷️ *Género / Escena:* [Ej: Trap Argentino / Indie Rock / Rock Nacional / Electrónica]
+    📖 *¿Qué pasó?:* [Resumen atrapante en 2 líneas]
+    📲 *Idea para redes:*
+    - 🎵 *Audio:* [Tema recomendado para musicalizar]
+    - 🗳️ *Debate / Sticker:* [Consigna o pregunta para engagement]
+    -----------------------------------
     """
 
     modelos = ['gemini-3.6-flash', 'gemini-3.1-pro-preview']
     for modelo in modelos:
         for intento in range(2):
             try:
-                print(f"🧠 Consultando efemérides para mañana con {modelo}...")
+                print(f"🧠 Consultando 5 efemérides para mañana con {modelo}...")
                 response = client.models.generate_content(
                     model=modelo,
                     contents=prompt
@@ -73,13 +77,13 @@ def enviar_telegram(mensaje):
 
 if __name__ == "__main__":
     fecha_manana = obtener_fecha_manana_texto()
-    print(f"📅 Generando efemérides anticipadas para mañana: {fecha_manana}...")
+    print(f"📅 Buscando 5 efemérides multigénero para mañana: {fecha_manana}...")
     
     reporte = generar_efemerides(fecha_manana)
     
     if reporte:
-        print("📱 Enviando a Telegram...")
+        print("📱 Enviando reporte a Telegram...")
         enviar_telegram(reporte)
-        print("🎉 ¡Efemérides del día siguiente enviadas con éxito!")
+        print("🎉 ¡5 efemérides enviadas con éxito!")
     else:
         print("❌ No se pudieron generar las efemérides.")
