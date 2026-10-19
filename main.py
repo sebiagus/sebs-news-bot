@@ -64,7 +64,7 @@ def obtener_noticias():
         except Exception as e:
             print(f"⚠️ Error al leer feed {url}: {e}")
             
-    # Acotamos a un máximo de 20 noticias para no enviar un prompt masivo a la API
+    # Máximo 20 noticias frescas para procesar
     return noticias[:20]
 
 def procesar_noticias(noticias):
@@ -97,24 +97,27 @@ def procesar_noticias(noticias):
     -----------------------------------
     """
 
-    modelo = 'gemini-3.6-flash'
-    pausas = [5, 15, 30]  # Esperas progresivas si hay pico de demanda (503)
+    # Pool de modelos Flash gratuitos en cascada
+    modelos = [
+        'gemini-3.8-flash',
+        'gemini-3.5-flash-lite',
+        'gemini-3.6-flash'
+    ]
 
-    for intento in range(len(pausas) + 1):
-        try:
-            print(f"🧠 Consultando {modelo} (Intento {intento + 1}/{len(pausas) + 1})...")
-            response = client.models.generate_content(
-                model=modelo,
-                contents=prompt,
-            )
-            if response and response.text:
-                return response.text
-        except Exception as e:
-            print(f"⚠️ Error en intento {intento + 1}: {e}")
-            if intento < len(pausas):
-                tiempo_espera = pausas[intento]
-                print(f"⏳ Esperando {tiempo_espera}s a que se libere la API...")
-                time.sleep(tiempo_espera)
+    for modelo in modelos:
+        print(f"🧠 Consultando con modelo: {modelo}...")
+        for intento in range(2):
+            try:
+                response = client.models.generate_content(
+                    model=modelo,
+                    contents=prompt,
+                )
+                if response and response.text:
+                    print(f"✅ Respuesta exitosa generada con {modelo}")
+                    return response.text
+            except Exception as e:
+                print(f"⚠️ {modelo} intento {intento + 1}/2 falló: {e}")
+                time.sleep(4)
 
     return None
 
@@ -150,12 +153,12 @@ if __name__ == "__main__":
     noticias = obtener_noticias()
     print(f"Total noticias frescas seleccionadas para procesar: {len(noticias)}")
     
-    print("🧠 Procesando Top 10...")
+    print("🧠 Procesando Top 10 con Gemini...")
     reporte = procesar_noticias(noticias)
     
     if reporte:
         print("📱 Enviando a Telegram...")
         enviar_telegram(f"🗞️ MESA DE REDACCIÓN (NOTICIAS DE HOY) - SEBS.NEWS\n\n{reporte}")
-        print("🎉 ¡Noticias enviadas!")
+        print("🎉 ¡Noticias enviadas con éxito!")
     else:
-        print("❌ No se pudo generar el reporte.")
+        print("❌ No se pudo generar el reporte tras agotar los modelos disponibles.")
